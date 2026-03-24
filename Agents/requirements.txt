@@ -1,0 +1,43 @@
+# Browser Automation
+playwright==1.44.0
+
+# ChromaDB - Vector Memory
+chromadb==0.5.0
+
+# Embeddings for ChromaDB semantic search
+sentence-transformers==3.0.1
+numpy==1.26.4
+
+# LLM Providers (pluggable)
+ollama==0.2.1                  # Default: local Ollama (free, LLaVA vision)
+google-generativeai==0.7.2     # Gemini Flash (cheap cloud)
+openai==1.30.0                 # OpenRouter / OpenAI compatible
+
+# HTTP & Async
+aiohttp==3.9.5
+httpx==0.27.0
+
+# Data Models & Validation
+pydantic==2.7.1
+pydantic-settings==2.3.0
+
+# Environment & Config
+python-dotenv==1.0.1
+
+# Image Processing (screenshots → base64 for LLaVA)
+Pillow==10.3.0
+
+# Logging
+loguru==0.7.2
+
+# Utilities
+asyncio-throttle==1.0.2
+tenacity==8.3.0                # Retry logic
+rich==13.7.1                   # Beautiful terminal output
+cachetools==5.3.3              # TTL cache for experience engine (Mooncake KVCache concept)
+
+# Stealth / Anti-detection
+fake-useragent==1.5.1          # Random user agents
+
+# Data handling
+python-dateutil==2.9.0
