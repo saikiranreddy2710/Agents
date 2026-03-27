@@ -1,323 +1,184 @@
-# 🤖 Self-Evolving Agentic Browser
+# Self-Evolving Agentic Browser
 
-A self-improving, task-specialized agentic system for LinkedIn automation.
-Inspired by **AgentFactory** (arXiv:2603.18000) — combines executable subagent accumulation,
-ChromaDB semantic RAG memory, Playwright stealth browser, and LLM-guided decision making.
+Experimental LinkedIn automation built with Playwright, ChromaDB-backed memory, and pluggable LLM providers.
 
----
+This project combines a browser pool, task-specific agents, semantic memory, and reusable workflow skills. It can search LinkedIn profiles, scrape profile data, send connection requests, and run an evolution loop that stores successful workflows for reuse.
 
-## 🧠 Architecture
+> [!WARNING]
+> This repository is experimental. LinkedIn UI changes, CAPTCHA, 2FA, and account restrictions can interrupt or break automation flows.
 
-```
-Goal
- │
- ▼
-MetaAgent ──────────────────────────────────────────────────────────┐
- │  (AgentFactory lifecycle: Install → Self-Evolve → Deploy)        │
- │                                                                   │
- ▼                                                                   │
-Orchestrator                                                         │
- │  (Detects workflow type, coordinates agents)                      │
- │                                                                   ▼
- ├──► AuthAgent      → Login + session persistence            skills/
- ├──► SearchAgent    → People search with filters             subagents/
- ├──► ConnectionAgent→ Personalized connection requests       (executable
- ├──► ScraperAgent   → Profile data extraction                 Python)
- └──► MessageAgent   → Message existing connections
-          │
-          ▼
-     PageController  (high-level browser actions)
-          │
-          ▼
-     BrowserPool     (parallel Playwright instances)
-          │
-          ▼
-     8 Atomic Tools: navigate | screenshot | click | type_text
-                     scroll   | dom        | evaluate | wait
-          │
-          ▼
-     Stealth Layer:  HumanBehavior | FingerprintRotator | RateLimiter
-```
+## What It Does
 
-### Self-Evolution Loop
+- Reuses LinkedIn sessions when possible
+- Searches LinkedIn people results and extracts profile URLs
+- Scrapes structured profile data
+- Sends connection requests with optional note templates
+- Runs a message workflow entrypoint for existing connections
+- Stores outcomes in ChromaDB for memory and skill reuse
+- Supports `colab`, `ollama`, `gemini`, and `openai` providers
 
-```
-Screenshot → Retrieve past experiences (ChromaDB RAG)
-           → Enrich prompt with learned patterns
-           → LLM decides action (Ollama/LLaVA or Gemini Flash)
-           → Execute via Playwright
-           → ReflectionAgent records outcome
-           → ChromaDB grows smarter
-           → Successful workflows saved as executable subagents (SKILL.md)
-           → EvolutionAgent rewrites failing strategies
-```
+## Why It Is Useful
 
----
+- Keeps browser automation logic organized by agent responsibility
+- Adds a memory layer so repeated tasks can learn from prior runs
+- Supports both local and hosted LLM workflows
+- Exposes a practical Colab bridge for larger models without running them locally
 
-## 📁 Project Structure
+## Project Layout
 
-```
+```text
 Agents/
-├── main.py                          ← CLI entry point
-├── requirements.txt                 ← Python dependencies
-├── docker-compose.yml               ← ChromaDB container
-├── .env.example                     ← Environment template
-├── skills_utils.py                  ← SKILL.md read/write utilities
-│
-├── types/
-│   └── agent_types.py               ← All Pydantic data models
-│
-├── llm/
-│   ├── base_model.py                ← Ollama + Gemini + OpenAI (pluggable)
-│   ├── prompt_engine.py             ← Chain-of-thought + output parser
-│   ├── experience_engine.py         ← RAG: retrieve past experiences
-│   ├── experience_recorder.py       ← Record outcomes to ChromaDB
-│   ├── enhanced_llm.py              ← LLM + experience = expert model
-│   └── evolution_engine.py          ← Strategy mutation engine
-│
-├── memory/
-│   ├── chroma_client.py             ← ChromaDB client wrapper
-│   ├── collections.py               ← 6 ChromaDB collections
-│   ├── agent_context.py             ← Working memory + state tracking
-│   └── memory_manager.py            ← Unified 4-tier memory system
-│
-├── planning/
-│   ├── goal_decomposer.py           ← Break goals into subtasks
-│   ├── tree_of_thought.py           ← Multi-path reasoning
-│   ├── replanner.py                 ← Handle failures with new plans
-│   └── backtracker.py               ← Checkpoint + rollback
-│
-├── agent_browser/
-│   ├── tools/                       ← 8 atomic browser tools
-│   │   ├── navigate.py
-│   │   ├── screenshot.py            ← Returns base64 for LLM vision
-│   │   ├── click.py
-│   │   ├── type_text.py
-│   │   ├── scroll.py
-│   │   ├── dom.py
-│   │   ├── evaluate.py
-│   │   └── wait.py
-│   ├── browser_instance.py          ← Single Playwright browser
-│   ├── page_controller.py           ← High-level semantic actions
-│   ├── browser_pool.py              ← Parallel browser instances
-│   ├── coordinator.py               ← Task distribution
-│   └── stealth/
-│       ├── human_behavior.py        ← Mouse curves, random delays
-│       ├── fingerprint_rotator.py   ← User agent + viewport rotation
-│       └── rate_limiter.py          ← Learned LinkedIn rate limits
-│
-├── agents/
-│   ├── base_agent.py                ← screenshot→retrieve→act→reflect loop
-│   ├── meta_agent.py                ← AgentFactory strategic controller
-│   ├── orchestrator.py              ← Workflow coordination
-│   ├── reflection_agent.py          ← Outcome analysis + pattern extraction
-│   ├── evolution_agent.py           ← Self-improvement engine
-│   ├── auth_agent.py                ← LinkedIn login
-│   ├── search_agent.py              ← People search
-│   ├── connection_agent.py          ← Connection requests
-│   ├── scraper_agent.py             ← Profile data extraction
-│   └── message_agent.py             ← Message connections
-│
-├── linkedin/
-│   ├── selectors.py                 ← All CSS selectors (centralized)
-│   ├── actions.py                   ← High-level LinkedIn actions
-│   └── persona_manager.py           ← Multi-account management
-│
-├── skills/
-│   ├── meta/                        ← Workflow-level skills
-│   │   ├── SKILL.md                 ← linkedin_connect skill
-│   │   ├── linkedin_scrape/
-│   │   └── linkedin_message/
-│   ├── tools/                       ← Tool-level skills
-│   │   └── SKILL.md
-│   └── subagents/                   ← Auto-generated executable subagents
-│
-└── workspace/                       ← Runtime data (sessions, logs, state)
-    ├── sessions/                    ← Browser session cookies
-    ├── profiles/                    ← Browser fingerprint profiles
-    ├── agent.log                    ← Full debug log
-    ├── rate_limit_state.json        ← Daily action counts
-    └── evolution_log.json           ← Evolution history
+├── main.py                 # CLI entrypoint
+├── requirements.txt        # Python dependencies
+├── docker-compose.yml      # ChromaDB service
+├── .env.example            # Environment template
+├── colab.ipynb             # Google Colab notebook
+├── colab_server.py         # OpenAI-compatible FastAPI server for Colab
+├── colab_tests.py          # Colab-side capability checks
+├── agent_browser/          # Playwright wrappers, tools, stealth helpers
+├── agents/                 # Auth, search, connection, scraper, message agents
+├── llm/                    # Provider adapters and orchestration
+├── memory/                 # ChromaDB client, collections, memory manager
+├── planning/               # Goal decomposition and replanning helpers
+├── linkedin/               # Selectors and LinkedIn-specific actions
+├── skills/                 # Built-in and saved workflow skills
+└── workspace/              # Runtime sessions, logs, and generated state
 ```
 
----
+## How It Works
 
-## 🚀 Quick Start
+`main.py` boots the browser pool, memory layer, LLM provider, and specialized agents. A `MetaAgent` routes work through the `Orchestrator`, which then runs one of the main workflows:
 
-### 1. Prerequisites
+- `connect`: authenticate, search profiles, and send connection requests
+- `scrape`: search profiles if needed, then scrape profile pages
+- `message`: authenticate, open a profile or thread, and send a message
+- `evolve`: review stored outcomes and improve saved strategies
+- `stats`: show daily action usage
+- `skills`: list saved skills
 
-```bash
-# Python 3.11+
-python --version
+The browser layer is built on Playwright and wrapped by `PageController` plus eight atomic tools: navigate, screenshot, click, type, scroll, DOM extraction, JS evaluation, and wait.
 
-# Docker (for ChromaDB)
-docker --version
+## Quick Start
 
-# Ollama (optional, for local LLM)
-ollama pull llava
-```
+### Prerequisites
 
-### 2. Install Dependencies
+- Python 3.9 or later
+- Chromium installed through Playwright
+- Docker, if you want ChromaDB as a service
+- One configured LLM provider
+
+### Install
 
 ```bash
 cd Agents
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
-playwright install chromium
+python -m playwright install chromium
 ```
 
-### 3. Configure Environment
+### Configure Environment
 
 ```bash
 cp .env.example .env
-# Edit .env with your LinkedIn credentials and LLM settings
 ```
 
-### 4. Start ChromaDB
+Set the values you actually want to use in `.env`, especially:
+
+- `LINKEDIN_EMAIL`
+- `LINKEDIN_PASSWORD`
+- `LLM_PROVIDER`
+- Provider-specific API settings
+- `CHROMA_HOST=localhost`
+- `CHROMA_PORT=8000`
+
+### Start Memory
 
 ```bash
 docker-compose up -d
 ```
 
-### 5. Run
+If ChromaDB is not reachable, the code falls back to local persistent storage in `./chroma_data`.
+
+## LLM Providers
+
+### Colab
+
+Recommended when you want a larger model without running it locally.
+
+1. Open [`colab.ipynb`](./colab.ipynb) in Google Colab.
+2. Run the model-loading cells.
+3. Optionally run [`colab_tests.py`](./colab_tests.py) in Colab.
+4. Run [`colab_server.py`](./colab_server.py) to start the FastAPI server and ngrok tunnel.
+5. Copy the ngrok URL into `COLAB_API_URL` in your local `.env`.
+6. Set `LLM_PROVIDER=colab`.
+
+The Colab server exposes:
+
+- `GET /health`
+- `GET /v1/models`
+- `POST /v1/chat/completions`
+- `POST /v1/agent/decide`
+
+### Ollama
+
+Use Ollama for local runs:
+
+```bash
+ollama pull llava
+```
+
+Then set:
+
+```bash
+LLM_PROVIDER=ollama
+OLLAMA_MODEL=llava
+OLLAMA_TEXT_MODEL=llama3
+```
+
+### Gemini And OpenAI-Compatible APIs
+
+The project also supports:
+
+- `LLM_PROVIDER=gemini`
+- `LLM_PROVIDER=openai`
+
+Configure the matching API key and model fields in `.env`.
+
+## CLI Usage
 
 ```bash
 # Send connection requests
 python main.py connect --query "ML engineer San Francisco" --limit 10
 
-# Scrape profiles
+# Scrape profiles from search results
 python main.py scrape --query "data scientist NYC" --limit 20
 
-# Message connections
+# Message existing connections
 python main.py message --connections "url1,url2" --template "Hi {name}, ..."
 
-# Run evolution cycle
+# Run strategy evolution
 python main.py evolve
 
-# View daily stats
+# Show daily action limits and browser pool stats
 python main.py stats
 
 # List saved skills
 python main.py skills
 ```
 
----
+## Getting Help
 
-## ⚙️ Configuration
+- Review the repository task tracker in [`TODO.md`](./TODO.md)
+- Check the environment template in [`.env.example`](./.env.example)
+- Open an issue: <https://github.com/saikiranreddy2710/learning-cluade/issues>
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LINKEDIN_EMAIL` | — | LinkedIn account email |
-| `LINKEDIN_PASSWORD` | — | LinkedIn account password |
-| `LLM_PROVIDER` | `ollama` | `ollama` \| `gemini` \| `openai` |
-| `OLLAMA_MODEL` | `llava` | Ollama model name (vision capable) |
-| `GEMINI_API_KEY` | — | Google Gemini API key |
-| `OPENAI_API_KEY` | — | OpenAI/OpenRouter API key |
-| `BROWSER_HEADLESS` | `true` | Run browser headless |
-| `BROWSER_POOL_SIZE` | `2` | Number of parallel browsers |
-| `CHROMA_HOST` | `localhost` | ChromaDB host |
-| `CHROMA_PORT` | `8000` | ChromaDB port |
-| `LOG_LEVEL` | `INFO` | Logging level |
+## Maintainer
 
----
+Maintained by [@saikiranreddy2710](https://github.com/saikiranreddy2710).
 
-## 🛡️ Anti-Detection
+## Security Notes
 
-The system implements multiple layers of bot detection avoidance:
-
-| Layer | Implementation |
-|-------|---------------|
-| **Rate Limiting** | Max 20 connections/day, 10 messages/day |
-| **Human Delays** | Gaussian-distributed 0.5–3s delays between actions |
-| **Mouse Curves** | Bezier curve mouse movements |
-| **Typing Speed** | Variable 30–300ms per keystroke |
-| **Fingerprint Rotation** | Cycles through 5 browser profiles |
-| **Stealth JS** | Removes `navigator.webdriver` flag |
-| **Session Persistence** | Reuses cookies to avoid repeated logins |
-
----
-
-## 🧬 Self-Evolution (AgentFactory Pattern)
-
-The system evolves itself over time:
-
-1. **Accumulation**: Every successful workflow is saved as an executable Python subagent in `skills/subagents/`
-2. **Supersede**: When a better strategy is found, old subagents are archived and replaced
-3. **RAG Learning**: ChromaDB stores every action outcome — future runs retrieve relevant past experiences
-4. **Selector Evolution**: When LinkedIn updates its UI, `EvolutionAgent` generates new CSS selectors
-5. **Note Optimization**: Connection note templates are improved based on acceptance rates
-
-### ChromaDB Collections
-
-| Collection | Purpose |
-|-----------|---------|
-| `screenshot_patterns` | Visual UI patterns from screenshots |
-| `action_outcomes` | What worked / what failed |
-| `linkedin_profiles` | Scraped profile data (deduplication) |
-| `personalization` | Connection notes that got accepted |
-| `agent_context` | Current agent state |
-| `procedural_memory` | Step-by-step workflow procedures |
-
----
-
-## 📊 Skill System (SKILL.md)
-
-Each saved skill follows the AgentFactory format:
-
-```markdown
----
-name: skill_name
-description: What this skill does
-skill_type: workflow | subagent | tool
-entry_file: skill_name.py
-tags: [linkedin, connect]
-version: "1.0"
----
-
-# Instructions
-...
-```
-
-Executable subagents follow the pattern:
-```python
-def main(query: str) -> dict:
-    return {"answer": "...", "summary": "..."}
-```
-
----
-
-## 🔧 Extending
-
-### Add a New LinkedIn Agent
-
-```python
-from agents.base_agent import BaseAgent
-
-class MyAgent(BaseAgent):
-    @property
-    def goal(self) -> str:
-        return "My specific goal"
-
-    async def execute_step(self, page_controller, screenshot_b64, experiences, step):
-        # Your logic here
-        return {"action": "my_action", "success": True, "done": False}
-```
-
-### Add a New Browser Tool
-
-```python
-# agent_browser/tools/my_tool.py
-async def my_tool(page, **kwargs) -> dict:
-    return {"success": True, "result": ...}
-
-# Register in agent_browser/tools/__init__.py
-from .my_tool import my_tool
-TOOL_REGISTRY["my_tool"] = my_tool
-```
-
----
-
-## 📄 License
-
-MIT License — Use responsibly. Respect LinkedIn's Terms of Service.
+- Do not commit live LinkedIn credentials or API keys
+- Keep `.env` out of source control
+- Before pushing config changes, make sure `.env.example` contains placeholders only
