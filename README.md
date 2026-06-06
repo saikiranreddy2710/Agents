@@ -1,11 +1,8 @@
 # Self-Evolving Agentic Browser
 
-Experimental LinkedIn automation built with Playwright, ChromaDB-backed memory, and pluggable LLM providers.
+LinkedIn automation built with Playwright, ChromaDB-backed memory, and pluggable LLM providers.
 
 This project combines a browser pool, task-specific agents, semantic memory, and reusable workflow skills. It can search LinkedIn profiles, scrape profile data, send connection requests, and run an evolution loop that stores successful workflows for reuse.
-
-> [!WARNING]
-> This repository is experimental. LinkedIn UI changes, CAPTCHA, 2FA, and account restrictions can interrupt or break automation flows.
 
 ## What It Does
 
